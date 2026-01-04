@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import twodimentional
+import files.twodimentional as twodimentional
 import time as t
 
 def update(x,y,selected, pieces, grid):
@@ -260,13 +260,13 @@ def putpieceonscreen(arr, piece, startx, starty, sizex, sizey, widthborder, bord
        
 def loadbesttimes():
     data = []
-    with open('records.py','r') as file:
+    with open('files/records.py','r') as file:
         for record in file.readlines():
             data.append(float(record[:-1]))
     return data
         
 def writebesttimes(records):
-    with open('records.py','w') as file:
+    with open('files/records.py','w') as file:
         file.writelines([str(record)+'\n' for record in records])
                     
 if __name__ == '__main__': 
