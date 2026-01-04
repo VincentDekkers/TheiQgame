@@ -259,10 +259,13 @@ def putpieceonscreen(arr, piece, startx, starty, sizex, sizey, widthborder, bord
                 putblockonscreen(arr,startx+l*sizey,starty+k*sizex,widthborder,bordercolor,sizex,sizey,color)
        
 def loadbesttimes():
-    data = []
-    with open('files/records.py','r') as file:
-        for record in file.readlines():
-            data.append(float(record[:-1]))
+    try:
+        data = []
+        with open('files/records.py','r') as file:
+            for record in file.readlines():
+                data.append(float(record[:-1]))
+    except:
+        data = [9999.99]*5
     return data
         
 def writebesttimes(records):
