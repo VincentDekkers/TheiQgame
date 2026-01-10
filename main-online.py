@@ -7,7 +7,7 @@ import threading
 import socket
 
 class TheiQgame:
-    def __init__(self, host="127.0.0.1", port=62743):
+    def __init__(self, host="192.168.1.138", port=62743):
         self.host = host
         self.port = port
 

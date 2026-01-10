@@ -7,7 +7,7 @@ import socket
 import threading
 
 class TheiQgame:
-    def __init__(self, host="127.0.0.1", port=62743):
+    def __init__(self, host="192.168.1.138", port=62743):
         self.host = host
         self.port = port
 
@@ -29,6 +29,7 @@ class TheiQgame:
         self.points = []
         self.placedpieces = []
         self.selected = [-1,0]
+        self.finishedplayers = []
         
     
     def update(self, x,y,selected, pieces, grid):
@@ -37,6 +38,7 @@ class TheiQgame:
             button = (x-115)//200 if (x-115)%200<170 else -1
             if button != -1:
                 self.ranking = []
+                self.finishedplayers = []
                 self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
                 self.endlevel(self.arr,self.level)
                 solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
@@ -264,7 +266,8 @@ class TheiQgame:
         if len(data) >= struct.calcsize(update_format):
             message = struct.unpack_from(update_format, data, 0)[0]
             message = message.decode()
-            if float(message) < 10000:
+            if float(message) < 10000 and conn not in self.finishedplayers:
+                self.finishedplayers.append(conn)
                 self.ranking.append((message,self.players.index(conn)))
                 if len(self.ranking) == 1:
                     self.points[self.players.index(conn)] += 1
