@@ -2,10 +2,19 @@ import cv2
 import numpy as np
 import files.twodimentional as twodimentional
 import time as t
-
+import struct
+import threading
+import socket
 
 class TheiQgame:
-    def __init__(self):
+    def __init__(self, host="127.0.0.1", port=62743):
+        self.host = host
+        self.port = port
+
+        self.kill = False
+
+        self.socket = None
+        self.justresetlevel = False
         self.records = self.loadbesttimes()
         self.level = [-1,0]
         self.itemsinlevel = []
@@ -17,37 +26,16 @@ class TheiQgame:
         self.arr = np.zeros((800,1200,3),dtype=np.uint8)
         self.arr -= 1
         self.placedpieces = []
-        cv2.imshow(self.name,self.arr)
-        self.creategrid(self.arr, (500,325), (50,50), 3, (0,0,0))
-        self.putpiecesonscreen(self.arr, self.pieces, self.colors, (35,35), 4, (0,0,0))
-        
-        self.arr[650:710,940:1120] = (0,0,0)
-        self.arr[653:707,943:1117] = (100,255,100)
-        cv2.putText(self.arr, 'Solve',(950,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-        
-        self.arr[550:610,940:1120] = (0,0,0)
-        self.arr[553:607,943:1117] = (100,100,255)
-        cv2.putText(self.arr, 'Reset',(942,600),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-        
-        cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
-        self.arr[110:112,70:1130] = (0,0,0)
-        
-        buttoncolors = [(102,255,102),(0,200,255),(0,0,255),(204,0,0),(153,0,153)]
-        buttonnames = ['Starter','Junior','Expert','Master','Wizard']
-        for i,(buttoncolor, buttonname) in enumerate(zip(buttoncolors, buttonnames)):
-            self.arr[140:190,200*i+115:200*(i+1)-30+115] = (0,0,0)
-            self.arr[142:188,200*i+2+115:200*(i+1)-32+115] = buttoncolor
-            cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)        
-        
-        cv2.imshow(self.name,self.arr)
         self.selected = [-1,0]
-        cv2.setMouseCallback(self.name, self.click_event)
-        cv2.waitKey(0)
+        self.levelgrid = None
+        self.player = None
     
     def update(self, x,y,selected, pieces, grid):
         if selected[1]:
             selected[1] = 0
             self.arr[732:759,908:1180] = (255,255,255)
+        if self.player:
+            cv2.putText(self.arr, f'Player {self.player}',(70,170),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,255),2)
         if (200< y < 500):
             newselected = 2*(x // 200) + (y-200) // 150
             if newselected not in self.placedpieces:
@@ -79,6 +67,7 @@ class TheiQgame:
                             self.writebesttimes(self.records)
                         else:
                             printcolor = (0,0,200)
+                        self.send(time)
                         cv2.putText(self.arr, f'{time:.2f}',(50,775),cv2.FONT_HERSHEY_SIMPLEX,2,printcolor,2)
                         for item in self.placedpieces:
                             if item not in self.itemsinlevel:
@@ -117,35 +106,59 @@ class TheiQgame:
             self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
             self.endlevel(self.arr, self.level)
         elif (940<x<1120) and (550<y<610):
-            self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
-            self.endlevel(self.arr, self.level)
-        elif (140<y<190) and (115<x<1085):
-            button = (x-115)//200 if (x-115)%200<170 else -1
-            if button != -1:
-                self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
-                self.endlevel(self.arr,self.level)
-                solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
-                for _ in range(2*button+2):
-                    datanewpcs.pop()
-                    self.removefrommatrix(solution, orderpcs.pop() + 10)
-                for piecenum in orderpcs:
-                    pieces[ordernewpcs[piecenum]] = newpcs[piecenum]
-                    self.removepiecefromscreen(self.arr, 200*(ordernewpcs[piecenum]//2), 150*(ordernewpcs[piecenum]%2)+200, 200,150,(255,255,255))
-                    self.placedpieces.append(ordernewpcs[piecenum])
-                    self.itemsinlevel.append(ordernewpcs[piecenum])
-                self.transformgrid(solution, ordernewpcs)
-                self.copygrids(grid, solution)
-                self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-                cv2.putText(self.arr, 'Time:',(10,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-                cv2.putText(self.arr, 'Record:',(10,550),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-                cv2.putText(self.arr, f'{self.records[button]:.2f}',(50,625),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,200),2)
-                self.level[0] = button
-                self.level[1] = t.time()
+            self.justresetlevel = True
+            self.newlevel()
         cv2.imshow(self.name,self.arr)
+        
+    def newlevel(self):
+        self.clear(self.arr, self.pieces, self.grid, self.colors, self.selected, self.placedpieces, self.itemsinlevel)
+        self.endlevel(self.arr,self.level)
+        self.copygrids(self.grid, self.levelgrid)
+        self.putgridonscreen(self.arr, self.grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
+        cv2.putText(self.arr, 'Time:',(10,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
+        cv2.putText(self.arr, 'Record:',(10,550),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
+        listofelements = [el for row in self.levelgrid for el in row]
+        for i in range(10,22):
+            if i in listofelements:
+                self.placedpieces.append(i-10)
+                self.itemsinlevel.append(i-10)
+                self.removepiecefromscreen(self.arr, 200*((i-10)//2), 150*((i-10)%2)+200, 200,150,(255,255,255))
+        cv2.putText(self.arr, f'{self.records[(10-len(self.itemsinlevel))//2]:.2f}',(50,625),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,200),2)
+        self.rotatepieces()
+        self.level[0] = (10-len(self.itemsinlevel))//2
+        if not self.justresetlevel:
+            self.level[1] = t.time()
+            self.justresetlevel = False
+        
+    def rotatepieces(self):
+        usedpieces = list(set([num for row in self.grid for num in row]))
+        try:
+            usedpieces.remove(0)
+        except:
+            pass
+        data = self.generatedatausedpieces(self.levelgrid, usedpieces)
+        for pieceindex, (offsetx, offsety, _) in zip(self.itemsinlevel,data):
+            possibilities = twodimentional.possibilitiesperpiece(self.pieces[pieceindex])
+            for possibility in possibilities:
+                if self.checkpossibility(offsetx, offsety, possibility, pieceindex):
+                    self.pieces[pieceindex] = possibility
+                    break
+        
+    def checkpossibility(self, offsetx, offsety, possibility, pieceindex):
+        offset = twodimentional.calculateoffset(possibility)
+        try:
+            for i,row in enumerate(possibility):
+                for j, el in enumerate(row):
+                    if el == 1:
+                        if self.grid[offsety + i - offset][offsetx + j] != pieceindex + 10:
+                            return False
+            else:
+                return True
+        except:
+            return False
         
     def endlevel(self, arr, level):
         level[0] = -1
-        level[1] = 0
         arr[500:800,0:325] = (255,255,255)
         
     def clear(self, arr, pieces, grid, colors, selected, placedpieces, itemsinlevel):
@@ -162,6 +175,7 @@ class TheiQgame:
 
     def solve(self, arr, grid, pieces, placedpieces):
         self.selected[0] = -1
+        self.level[1] = 0
         usedpieces = list(set([num for row in grid for num in row]))
         try:
             usedpieces.remove(0)
@@ -309,10 +323,72 @@ class TheiQgame:
         except:
             data = [9999.99]*5
         return data
+    
+    def send(self, time):
+        tosend = self.serialize(time)
+        if self.socket:
+            self.socket.sendall(tosend)    
+            
+    def serialize(self, time):
+        return struct.pack('7s', f'{time:07.2f}'.encode())
             
     def writebesttimes(self,records):
         with open('files/records.py','w') as file:
             file.writelines([str(record)+'\n' for record in records])
-                    
+
+    def deserialize(self, data):
+        update_format = '112s'
+        if len(data) >= struct.calcsize(update_format):
+            message = struct.unpack_from(update_format, data, 0)[0]
+            message = message.decode()
+            self.levelgrid = [[int(message[2*(11*i+j):2*(11*i+j)+2]) for j in range(11)] for i in range(5)]
+            self.player = int(message[-2:])+1
+            self.newlevel()
+
+    def run_listener(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+            s.connect((self.host, self.port))
+            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+            s.settimeout(1)
+            print('connected', s)
+            self.socket = s
+            while not self.kill:
+                try:
+                    data = self.socket.recv(4096)
+                    if len(data):
+                        self.deserialize(data)
+                except socket.timeout:
+                    pass
+                t.sleep(0.001)
+    
+    def await_kill(self):
+        self.kill = True
+
+            
+    def run(self):
+        threading.Thread(target=self.run_listener).start()
+        self.creategrid(self.arr, (500,325), (50,50), 3, (0,0,0))
+        self.putpiecesonscreen(self.arr, self.pieces, self.colors, (35,35), 4, (0,0,0))
+        
+        self.arr[650:710,940:1120] = (0,0,0)
+        self.arr[653:707,943:1117] = (100,255,100)
+        cv2.putText(self.arr, 'Solve',(950,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
+        
+        self.arr[550:610,940:1120] = (0,0,0)
+        self.arr[553:607,943:1117] = (100,100,255)
+        cv2.putText(self.arr, 'Reset',(942,600),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
+        
+        cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
+        self.arr[110:112,70:1130] = (0,0,0)
+
+        cv2.imshow(self.name,self.arr)
+        cv2.setMouseCallback(self.name, self.click_event)
+        try:
+            while cv2.getWindowProperty(self.name, 0) >= 0:
+                p =cv2.waitKey(0)
+        except cv2.error:
+            self.await_kill()
+        
 if __name__ == '__main__': 
-    TheiQgame()
+    TheiQgame().run()

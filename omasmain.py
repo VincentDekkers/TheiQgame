@@ -161,6 +161,7 @@ class TheiQgame:
         self.putgridonscreen(arr, grid, colors, 4, 325, 500, 50, 50, (255,255,255))    
 
     def solve(self, arr, grid, pieces, placedpieces):
+        self.selected[0] = -1
         usedpieces = list(set([num for row in grid for num in row]))
         try:
             usedpieces.remove(0)

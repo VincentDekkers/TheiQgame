@@ -2,10 +2,19 @@ import cv2
 import numpy as np
 import files.twodimentional as twodimentional
 import time as t
-
+import struct
+import socket
+import threading
 
 class TheiQgame:
-    def __init__(self):
+    def __init__(self, host="127.0.0.1", port=62743):
+        self.host = host
+        self.port = port
+
+        self.kill = False
+        self.thread_count = 0
+        self.players = []
+        
         self.records = self.loadbesttimes()
         self.level = [-1,0]
         self.itemsinlevel = []
@@ -16,112 +25,18 @@ class TheiQgame:
         self.colors = tuple((color[2], color[1], color[0]) for color in self.colors)
         self.arr = np.zeros((800,1200,3),dtype=np.uint8)
         self.arr -= 1
+        self.ranking = []
+        self.points = []
         self.placedpieces = []
-        cv2.imshow(self.name,self.arr)
-        self.creategrid(self.arr, (500,325), (50,50), 3, (0,0,0))
-        self.putpiecesonscreen(self.arr, self.pieces, self.colors, (35,35), 4, (0,0,0))
-        
-        self.arr[650:710,940:1120] = (0,0,0)
-        self.arr[653:707,943:1117] = (100,255,100)
-        cv2.putText(self.arr, 'Solve',(950,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-        
-        self.arr[550:610,940:1120] = (0,0,0)
-        self.arr[553:607,943:1117] = (100,100,255)
-        cv2.putText(self.arr, 'Reset',(942,600),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-        
-        cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
-        self.arr[110:112,70:1130] = (0,0,0)
-        
-        buttoncolors = [(102,255,102),(0,200,255),(0,0,255),(204,0,0),(153,0,153)]
-        buttonnames = ['Starter','Junior','Expert','Master','Wizard']
-        for i,(buttoncolor, buttonname) in enumerate(zip(buttoncolors, buttonnames)):
-            self.arr[140:190,200*i+115:200*(i+1)-30+115] = (0,0,0)
-            self.arr[142:188,200*i+2+115:200*(i+1)-32+115] = buttoncolor
-            cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)        
-        
-        cv2.imshow(self.name,self.arr)
         self.selected = [-1,0]
-        cv2.setMouseCallback(self.name, self.click_event)
-        cv2.waitKey(0)
+        
     
     def update(self, x,y,selected, pieces, grid):
-        if selected[1]:
-            selected[1] = 0
-            self.arr[732:759,908:1180] = (255,255,255)
-        if (200< y < 500):
-            newselected = 2*(x // 200) + (y-200) // 150
-            if newselected not in self.placedpieces:
-                self.removepiecefromscreen(self.arr, 200*(x//200), 150*((y-200)//150)+200, 200, 150, (255,255,255))
-                if newselected == selected[0]:
-                    self.putpieceonscreen(self.arr, pieces[newselected],200*(x//200)+5, 150*((y-200)//150)+205, 35,35, 4,(0,0,0), self.colors[newselected])
-                    selected[0] = -1
-                elif selected[0] == -1:
-                    self.putpieceonscreen(self.arr, pieces[newselected],200*(x//200)+5, 150*((y-200)//150)+205, 35,35, 4,(0,0,150),self.colors[newselected])
-                    selected[0] = newselected
-                else:
-                    self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
-                    self.putpieceonscreen(self.arr, pieces[newselected],200*(x//200)+5, 150*((y-200)//150)+205, 35,35, 4,(0,0,150),self.colors[newselected])
-                    self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,0), self.colors[selected[0]])
-                    selected[0] = newselected
-        elif (325<x<874) and (501<y<749):
-            xlocation = (x-325)//50
-            ylocation = (y-500)//50
-            if selected[0] != -1:
-                test = twodimentional.putpieceonboard(grid, pieces[selected[0]],xlocation,ylocation)
-                if type(test) == list:
-                    self.placedpieces.append(selected[0])
-                    if len(self.placedpieces) == 12 and self.level[0] != -1:
-                        stop = t.time()
-                        time = stop - self.level[1]
-                        if time < self.records[self.level[0]]:
-                            self.records[self.level[0]] = time
-                            printcolor = (0,200,0)
-                            self.writebesttimes(self.records)
-                        else:
-                            printcolor = (0,0,200)
-                        cv2.putText(self.arr, f'{time:.2f}',(50,775),cv2.FONT_HERSHEY_SIMPLEX,2,printcolor,2)
-                        for item in self.placedpieces:
-                            if item not in self.itemsinlevel:
-                                self.itemsinlevel.append(item)
-                    test = twodimentional.putpieceonboard(twodimentional.board(), pieces[selected[0]],xlocation,ylocation)
-                    self.addmatrices(grid, test, selected[0])
-                    self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-                    self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
-                    selected[0] = -1 
-                else:
-                    removeditem = grid[ylocation][xlocation]
-                    if removeditem != 0:
-                        removedindex = removeditem - 10
-                        self.removefrommatrix(grid, removeditem)
-                        self.placedpieces.remove(removedindex)
-                        self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-                        self.putpieceonscreen(self.arr, pieces[removedindex],200*(removedindex//2)+5, 150*(removedindex%2)+205, 35,35, 4,(0,0,150), self.colors[removedindex])
-                        self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
-                        self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,0), self.colors[selected[0]])
-                        selected[0] = removedindex
-                        if removedindex in self.itemsinlevel:
-                            self.endlevel(self.arr, self.level)
-            else:
-                removeditem = grid[ylocation][xlocation]
-                if removeditem != 0:
-                    removedindex = removeditem - 10
-                    self.removefrommatrix(grid, removeditem)
-                    self.placedpieces.remove(removedindex)
-                    self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-                    self.putpieceonscreen(self.arr, pieces[removedindex],200*(removedindex//2)+5, 150*(removedindex%2)+205, 35,35, 4,(0,0,150), self.colors[removedindex])
-                    selected[0] = removedindex
-                    if removedindex in self.itemsinlevel:
-                        self.endlevel(self.arr, self.level)
-        elif (940<x<1120) and (650<y<710):
-            self.solve(self.arr, grid, pieces, self.placedpieces)
-            self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-            self.endlevel(self.arr, self.level)
-        elif (940<x<1120) and (550<y<610):
-            self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
-            self.endlevel(self.arr, self.level)
-        elif (140<y<190) and (115<x<1085):
+        self.writerecords()
+        if (140<y<190) and (115<x<1085):
             button = (x-115)//200 if (x-115)%200<170 else -1
             if button != -1:
+                self.ranking = []
                 self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
                 self.endlevel(self.arr,self.level)
                 solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
@@ -130,19 +45,23 @@ class TheiQgame:
                     self.removefrommatrix(solution, orderpcs.pop() + 10)
                 for piecenum in orderpcs:
                     pieces[ordernewpcs[piecenum]] = newpcs[piecenum]
-                    self.removepiecefromscreen(self.arr, 200*(ordernewpcs[piecenum]//2), 150*(ordernewpcs[piecenum]%2)+200, 200,150,(255,255,255))
                     self.placedpieces.append(ordernewpcs[piecenum])
                     self.itemsinlevel.append(ordernewpcs[piecenum])
                 self.transformgrid(solution, ordernewpcs)
                 self.copygrids(grid, solution)
-                self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
-                cv2.putText(self.arr, 'Time:',(10,700),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-                cv2.putText(self.arr, 'Record:',(10,550),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2)
-                cv2.putText(self.arr, f'{self.records[button]:.2f}',(50,625),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,200),2)
-                self.level[0] = button
-                self.level[1] = t.time()
+                self.send()
         cv2.imshow(self.name,self.arr)
         
+    def writerecords(self):
+        self.arr[260:800,0:1200] = (255,255,255)
+        standings = [(points, player) for player, points in enumerate(self.points)]
+        standings.sort(reverse=True)
+        starty = 300
+        for i,(points,player) in enumerate(standings):
+            cv2.putText(self.arr, f'Player {player + 1}: {points}', (50,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+        for i, (time, player) in enumerate(self.ranking):
+            cv2.putText(self.arr, f'Player {player + 1}: {float(time):7.2f}', (650,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+
     def endlevel(self, arr, level):
         level[0] = -1
         level[1] = 0
@@ -156,9 +75,7 @@ class TheiQgame:
         for _ in range(length):
             itemsinlevel.pop()
         selected[0] = -1
-        self.cleargrid(grid)
-        self.putpiecesonscreen(arr, pieces, colors, (35,35), 4, (0,0,0))
-        self.putgridonscreen(arr, grid, colors, 4, 325, 500, 50, 50, (255,255,255))    
+        self.cleargrid(grid)  
 
     def solve(self, arr, grid, pieces, placedpieces):
         self.selected[0] = -1
@@ -211,7 +128,6 @@ class TheiQgame:
         for i in range(ii):
             for j in range(jj):
                 grid[i][j] = 0
-
                 
     def removefrommatrix(self,grid, item):
         for i,row in enumerate(grid):
@@ -313,6 +229,93 @@ class TheiQgame:
     def writebesttimes(self,records):
         with open('files/records.py','w') as file:
             file.writelines([str(record)+'\n' for record in records])
+            
+    def send(self):
+        for id,player_conn in enumerate(self.players):
+            try:
+                tosend = self.serialize(id)
+                player_conn.sendall(tosend)
+            except OSError:
+                pass        
+            
+    def serialize(self, id):
+        return struct.pack('112s', (''.join([''.join([str(el) if el != 0 else '00' for el in row]) for row in self.grid])+f'{id:2d}').encode())
+            
+    def run_listener(self, conn):
+        self.thread_count += 1
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        conn.settimeout(1)
+        with conn:
+            while not self.kill:
+                try:
+                    data = conn.recv(4096)
+                    if len(data):
+                        self.deserialize(data, conn)
+                        # target_space = struct.unpack_from('B', data, 0)[0] # TODO: load data
+                except socket.timeout:
+                    pass
+                except (ConnectionAbortedError, ConnectionResetError):
+                    break
+                t.sleep(0.001)
+        self.thread_count -= 1
+        
+    def deserialize(self, data, conn):
+        update_format = '7s'
+        if len(data) >= struct.calcsize(update_format):
+            message = struct.unpack_from(update_format, data, 0)[0]
+            message = message.decode()
+            self.ranking.append((message,self.players.index(conn)))
+            if len(self.ranking) == 1:
+                self.points[self.players.index(conn)] += 1
+            
+    def connection_listen_loop(self):
+        self.thread_count += 1
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+            s.bind((self.host, self.port))
+
+            while not self.kill:
+                s.settimeout(1)
+                s.listen()
+                try:
+                    conn, addr = s.accept()
+                    print('new connection:', conn, addr)
+                    self.players.append(conn)
+                    self.points.append(0)
+                    threading.Thread(target=self.run_listener, args=(conn,)).start()
+                except socket.timeout:
+                    continue
+                t.sleep(0.01)
+        self.thread_count -= 1
+    
+
+    def await_kill(self):
+        self.kill = True
+        while self.thread_count:
+            t.sleep(0.01)
+            
+    def run(self):
+        threading.Thread(target=self.connection_listen_loop).start()
+        
+        cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
+        self.arr[110:112,70:1130] = (0,0,0)
+        
+        buttoncolors = [(102,255,102),(0,200,255),(0,0,255),(204,0,0),(153,0,153)]
+        buttonnames = ['Starter','Junior','Expert','Master','Wizard']
+        for i,(buttoncolor, buttonname) in enumerate(zip(buttoncolors, buttonnames)):
+            self.arr[140:190,200*i+115:200*(i+1)-30+115] = (0,0,0)
+            self.arr[142:188,200*i+2+115:200*(i+1)-32+115] = buttoncolor
+            cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)        
+        cv2.putText(self.arr, 'Points:', (50,250),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+        cv2.putText(self.arr, 'This round:', (650,250),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+        cv2.imshow(self.name,self.arr)
+        cv2.setMouseCallback(self.name, self.click_event)
+        try:
+            while cv2.getWindowProperty(self.name, 0) >= 0:
+                _ = cv2.waitKey(1)
+                t.sleep(0.05)
+        except cv2.error:
+            self.await_kill()
                     
 if __name__ == '__main__': 
-    TheiQgame()
+    TheiQgame().run()
