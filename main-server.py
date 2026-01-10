@@ -264,9 +264,10 @@ class TheiQgame:
         if len(data) >= struct.calcsize(update_format):
             message = struct.unpack_from(update_format, data, 0)[0]
             message = message.decode()
-            self.ranking.append((message,self.players.index(conn)))
-            if len(self.ranking) == 1:
-                self.points[self.players.index(conn)] += 1
+            if float(message) < 10000:
+                self.ranking.append((message,self.players.index(conn)))
+                if len(self.ranking) == 1:
+                    self.points[self.players.index(conn)] += 1
             
     def connection_listen_loop(self):
         self.thread_count += 1
