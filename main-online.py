@@ -128,6 +128,7 @@ class TheiQgame:
         self.level[0] = (10-len(self.itemsinlevel))//2
         if not self.justresetlevel:
             self.level[1] = t.time()
+        else:
             self.justresetlevel = False
         
     def rotatepieces(self):
