@@ -7,7 +7,7 @@ import socket
 import threading
 
 class TheiQgame:
-    def __init__(self, host="192.168.1.138", port=62743):
+    def __init__(self, host="192.168.99.151", port=62743):
         self.host = host
         self.port = port
 
@@ -33,7 +33,6 @@ class TheiQgame:
         
     
     def update(self, x,y,selected, pieces, grid):
-        self.writerecords()
         if (140<y<190) and (115<x<1085):
             button = (x-115)//200 if (x-115)%200<170 else -1
             if button != -1:
@@ -52,7 +51,6 @@ class TheiQgame:
                 self.transformgrid(solution, ordernewpcs)
                 self.copygrids(grid, solution)
                 self.send()
-        cv2.imshow(self.name,self.arr)
         
     def writerecords(self):
         self.arr[260:800,0:1200] = (255,255,255)
@@ -148,7 +146,7 @@ class TheiQgame:
         pieces[selected[0]] = newpiece
         self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
         self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,150), self.colors[selected[0]])
-        cv2.imshow(self.name, self.arr)
+       
         
     def flip(self,selected, pieces):
         oldpiece = pieces[selected[0]]
@@ -156,7 +154,7 @@ class TheiQgame:
         pieces[selected[0]] = newpiece
         self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
         self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,150), self.colors[selected[0]])
-        cv2.imshow(self.name, self.arr)
+        
             
     def click_event(self,event, x, y, flags, params):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -253,7 +251,6 @@ class TheiQgame:
                     data = conn.recv(4096)
                     if len(data):
                         self.deserialize(data, conn)
-                        # target_space = struct.unpack_from('B', data, 0)[0] # TODO: load data
                 except socket.timeout:
                     pass
                 except (ConnectionAbortedError, ConnectionResetError):
@@ -316,6 +313,8 @@ class TheiQgame:
         cv2.setMouseCallback(self.name, self.click_event)
         try:
             while cv2.getWindowProperty(self.name, 0) >= 0:
+                self.writerecords()
+                cv2.imshow(self.name,self.arr)
                 _ = cv2.waitKey(1)
                 t.sleep(0.05)
         except cv2.error:
