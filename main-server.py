@@ -7,7 +7,7 @@ import socket
 import threading
 
 class TheiQgame:
-    def __init__(self, host="192.168.99.151", port=62743):
+    def __init__(self, host="192.168.0.171", port=62743):
         self.host = host
         self.port = port
 
@@ -31,6 +31,8 @@ class TheiQgame:
         self.selected = [-1,0]
         self.finishedplayers = []
         
+        self.buffer = []
+        
     
     def update(self, x,y,selected, pieces, grid):
         if (140<y<190) and (115<x<1085):
@@ -40,7 +42,10 @@ class TheiQgame:
                 self.finishedplayers = []
                 self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
                 self.endlevel(self.arr,self.level)
-                solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
+                while len(self.buffer) == 0:
+                    t.sleep(0.05)
+                # solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
+                solution, newpcs, orderpcs, datanewpcs, ordernewpcs = self.buffer.pop()
                 for _ in range(2*button+2):
                     datanewpcs.pop()
                     self.removefrommatrix(solution, orderpcs.pop() + 10)
@@ -295,8 +300,17 @@ class TheiQgame:
         while self.thread_count:
             t.sleep(0.01)
             
+    def buffermaker(self):
+        self.thread_count += 1
+        while not self.kill:
+            if len(self.buffer) < 3:
+                self.buffer.append(twodimentional.generaterandomsolution(10))
+            t.sleep(1)
+        self.thread_count -= 1
+            
     def run(self):
         threading.Thread(target=self.connection_listen_loop).start()
+        threading.Thread(target=self.buffermaker).start()
         
         cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
         self.arr[110:112,70:1130] = (0,0,0)
