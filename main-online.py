@@ -388,7 +388,13 @@ class TheiQgame:
         try:
             while cv2.getWindowProperty(self.name, 0) >= 0:
                 cv2.imshow(self.name,self.arr)
-                _ = cv2.waitKey(1)
+                key = cv2.waitKey(1)
+                if key == ord('r'):
+                    if self.selected[0] != -1:
+                        self.rotate(self.selected, self.pieces)
+                elif key == ord('f'):
+                    if self.selected[0] != -1:
+                        self.flip(self.selected, self.pieces)
                 t.sleep(0.02)
         except cv2.error:
             self.await_kill()
