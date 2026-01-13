@@ -7,7 +7,7 @@ import socket
 import threading
 
 class TheiQgame:
-    def __init__(self, host="192.168.0.171", port=62743):
+    def __init__(self, host="131.155.212.252", port=62743):
         self.host = host
         self.port = port
 
@@ -30,7 +30,7 @@ class TheiQgame:
         self.placedpieces = []
         self.selected = [-1,0]
         self.finishedplayers = []
-        
+        self.mode = 0 # 0 for regular and 1 for omas
         self.buffer = []
         
     
