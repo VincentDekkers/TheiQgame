@@ -194,7 +194,7 @@ class TheiQgame:
             newboard = twodimentional.board()
         else:
             newboard = twodimentional.omasboard()
-        solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10)
+        solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10, mode=self.mode)
         for i,piece in enumerate(usedpieces):
             if piece not in placedpieces:
                 placedpieces.append(piece)
