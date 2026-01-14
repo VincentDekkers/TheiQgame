@@ -19,7 +19,7 @@ class TheiQgame:
         self.level = [-1,0]
         self.itemsinlevel = []
         self.name = 'IQgame'
-        self.grid = twodimentional.board()
+        self.grid = twodimentional.getboard()
         self.pieces = list(twodimentional.getpieces())
         self.colors = twodimentional.colors()
         self.colors = tuple((color[2], color[1], color[0]) for color in self.colors)
@@ -29,6 +29,7 @@ class TheiQgame:
         self.selected = [-1,0]
         self.levelgrid = None
         self.player = None
+        self.mode = 0 
     
     def update(self, x,y,selected, pieces, grid):
         if selected[1]:
@@ -51,7 +52,9 @@ class TheiQgame:
                     self.putpieceonscreen(self.arr, pieces[newselected],200*(x//200)+5, 150*((y-200)//150)+205, 35,35, 4,(0,0,150),self.colors[newselected])
                     self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,0), self.colors[selected[0]])
                     selected[0] = newselected
-        elif (325<x<874) and (501<y<749):
+        elif (325<x<924) and (501<y<749):
+            if x > 874 and not self.mode:
+                return
             xlocation = (x-325)//50
             ylocation = (y-500)//50
             if selected[0] != -1:
@@ -72,7 +75,10 @@ class TheiQgame:
                         for item in self.placedpieces:
                             if item not in self.itemsinlevel:
                                 self.itemsinlevel.append(item)
-                    test = twodimentional.putpieceonboard(twodimentional.board(), pieces[selected[0]],xlocation,ylocation)
+                    if not self.mode:
+                        test = twodimentional.putpieceonboard(twodimentional.getboard(), pieces[selected[0]],xlocation,ylocation)
+                    else:
+                        test = twodimentional.putpieceonboard(twodimentional.omasboard(), pieces[selected[0]],xlocation,ylocation)
                     self.addmatrices(grid, test, selected[0])
                     self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
                     self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
@@ -184,7 +190,10 @@ class TheiQgame:
             return
         datausedpieces = self.generatedatausedpieces(grid, usedpieces)
         usedpieces = [num - 10 for num in usedpieces]
-        newboard = twodimentional.board()
+        if not self.mode:
+            newboard = twodimentional.board()
+        else:
+            newboard = twodimentional.omasboard()
         solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10)
         for i,piece in enumerate(usedpieces):
             if piece not in placedpieces:
@@ -197,7 +206,7 @@ class TheiQgame:
         
     def copygrids(self,grid, solution):            
         for i in range(5):
-            for j in range(11):
+            for j in range(len(grid[0])):
                 grid[i][j] = solution[i][j]
     
     def transformgrid(self,grid, order):
@@ -210,7 +219,7 @@ class TheiQgame:
         datausedpieces = []
         for usedpiece in usedpieces:
             found = False
-            for i in range(11):
+            for i in range(len(grid[0])):
                 if found:
                     break
                 for j in range(5):
@@ -269,14 +278,14 @@ class TheiQgame:
     def creategrid(self,arr, startingpoint, sizecell, widthborder, gridcolor):
         starty, startx = startingpoint
         sizey, sizex = sizecell
-        xlength = 11*sizex
+        xlength = len(self.grid[0])*sizex
         ylength = 5*sizey
         for i in range(6):
             yval = starty + i*sizey
             for j in range(xlength+widthborder):
                 for k in range(widthborder):
                     arr[yval+k][startx+j] = gridcolor
-        for j in range(12):
+        for j in range(len(self.grid[0])+1):
             xval = startx + j*sizex
             for i in range(ylength):
                 for k in range(widthborder):
@@ -297,6 +306,8 @@ class TheiQgame:
         
     def removepiecefromscreen(self,arr,startx, starty, sizex, sizey, backgroundcolor):
         arr[starty:starty+sizey,startx:startx+sizex] = backgroundcolor
+        if starty == 350 and startx == 1000 and self.mode == 1:
+            arr[490:540,995:1047] = backgroundcolor
 
     def putpiecesonscreen(self,arr, pieces, colors, sizecell, widthborder, bordercolor):
         ystep = 150
@@ -318,7 +329,7 @@ class TheiQgame:
     def loadbesttimes(self,):
         try:
             data = []
-            with open('files/records.py','r') as file:
+            with open(f'files/{"omas" if self.mode else ""}records.py','r') as file:
                 for record in file.readlines():
                     data.append(float(record[:-1]))
         except:
@@ -334,17 +345,34 @@ class TheiQgame:
         return struct.pack('7s', f'{time:07.2f}'.encode())
             
     def writebesttimes(self,records):
-        with open('files/records.py','w') as file:
+        with open(f'files/{"omas" if self.mode else ""}records.py','w') as file:
             file.writelines([str(record)+'\n' for record in records])
+            
+    def changemode(self):
+        self.arr[200:550,0:1200] = (255,255,255)
+        self.arr[500:800,0:940] = (255,255,255)
+        if self.mode == 1:
+            self.grid = twodimentional.omasboard()
+            self.pieces = list(twodimentional.getomaspieces())
+        elif self.mode == 0:
+            self.grid = twodimentional.getboard()
+            self.pieces = list(twodimentional.getpieces())
+        self.records = self.loadbesttimes()
+        self.creategrid(self.arr, (500,325), (50,50), 3, (0,0,0))
+        self.putpiecesonscreen(self.arr, self.pieces, self.colors, (35,35), 4, (0,0,0))
 
     def deserialize(self, data):
-        update_format = '112s'
+        update_format = '123s'
         if len(data) >= struct.calcsize(update_format):
             message = struct.unpack_from(update_format, data, 0)[0]
             message = message.decode()
-            self.levelgrid = [[int(message[2*(11*i+j):2*(11*i+j)+2]) for j in range(11)] for i in range(5)]
-            self.player = int(message[-2:])+1
-            self.newlevel()
+            self.levelgrid = [[int(message[2*((11 + int(message[-1]))*i+j):2*((11 + int(message[-1]))*i+j)+2]) for j in range(11 + int(message[-1]))] for i in range(5)]
+            self.player = int(message[-3:-1])+1
+            if self.mode != int(message[-1]):
+                self.mode = int(message[-1])
+                self.changemode()
+            if int(message[0]) != 1:
+                self.newlevel()
 
     def run_listener(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

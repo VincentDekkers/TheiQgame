@@ -56,13 +56,13 @@ def buildstartposition(board, pieces, usedpieces, datausedpieces):
             exit()
     return board
 
-def findnextzero(board, lastzero):
-    for i in range(lastzero // 5, 11):
+def findnextzero(board, lastzero, mode = 0):
+    for i in range(lastzero // 5, 11 + mode):
         for j in range(5):
             if board[j][i] == 0:
                 return i * 5 + j
 
-def findsolution(board, allpieces, usedpieces, datausedpieces, lastzero):
+def findsolution(board, allpieces, usedpieces, datausedpieces, lastzero, mode=0):
     if len(usedpieces) == 12:
         return
     for i,shape in enumerate(allpieces):
@@ -74,8 +74,8 @@ def findsolution(board, allpieces, usedpieces, datausedpieces, lastzero):
                 if type(test) == list:
                     usedpieces.append(i)
                     datausedpieces.append([lastzero // 5, lastzero % 5, j])
-                    newzero = findnextzero(test, lastzero)
-                    findsolution(test, allpieces, usedpieces, datausedpieces, newzero)
+                    newzero = findnextzero(test, lastzero, mode)
+                    findsolution(test, allpieces, usedpieces, datausedpieces, newzero, mode)
                     if len(usedpieces) == 12:
                         return
                     else:
@@ -84,8 +84,8 @@ def findsolution(board, allpieces, usedpieces, datausedpieces, lastzero):
     else:
         return 
   
-def showsolution(pieces, usedpieces, datausedpieces, startpieces, allpieces, offset = 0):
-    tempboard = [[0 for _ in range(11)] for _ in range(5)]
+def showsolution(pieces, usedpieces, datausedpieces, startpieces, allpieces, offset = 0, mode = 0):
+    tempboard = [[0 for _ in range(11 + mode)] for _ in range(5)]
     for h,pieceindex in enumerate(usedpieces):
         if pieceindex in startpieces:
             piece = rotate(pieces[pieceindex], datausedpieces[h][2]//2)
@@ -101,12 +101,12 @@ def showsolution(pieces, usedpieces, datausedpieces, startpieces, allpieces, off
                 tempboard[i+y][j + x] += el*(pieceindex + offset)
     return tempboard
     
-def preamble(board, pieces, usedpieces, datausedpieces, offset = 0):
+def preamble(board, pieces, usedpieces, datausedpieces, offset = 0, mode = 0):
     allpieces = [possibilitiesperpiece(piece) for piece in pieces]
     board = buildstartposition(board, pieces, usedpieces, datausedpieces)
     startpieces = usedpieces.copy()
-    findsolution(board, allpieces, usedpieces, datausedpieces, findnextzero(board,0))
-    solution = showsolution(pieces,usedpieces,datausedpieces, startpieces, allpieces, offset)
+    findsolution(board, allpieces, usedpieces, datausedpieces, findnextzero(board,0, mode),mode)
+    solution = showsolution(pieces,usedpieces,datausedpieces, startpieces, allpieces, offset, mode)
     return solution
 
 def getpieces():
@@ -125,6 +125,22 @@ def getpieces():
     )
     return pieces
 
+def getomaspieces():
+    pieces = (((1,0,0),(1,1,1),(0,0,1)), 
+            ((1,0,0),(1,1,1),(1,0,0)),
+            ((0,1,0),(1,1,1),(1,0,0)), 
+            ((1,1,1),(1,1,0)), 
+            ((1,1,1),(1,0,1)), 
+            ((0,1,0),(1,1,1),(0,1,0)), 
+            ((1,1,1),(1,0,0),(1,0,0)), 
+            ((1,1,0),(0,1,1),(0,0,1)),  
+            ((1,0),(1,0),(1,1),(0,1)), 
+            ((1,0),(1,0),(1,1),(1,0)), 
+            ((1,0),(1,0),(1,0),(1,1)), 
+            ((1,),(1,),(1,),(1,),(1,)),
+    )
+    return pieces
+
 def colors():
     return ((200,200,200), #0
             (100,255,100), #1
@@ -140,19 +156,28 @@ def colors():
             (000,150,000), #11
             )
 
-def board():
+def getboard():
     board = [[0 for _ in range(11)] for _ in range(5)]
     return board
 
-def generaterandomsolution(offset = 0):
+def omasboard():
+    board = [[0 for _ in range(12)] for _ in range(5)]
+    return board
+
+def generaterandomsolution(offset = 0, mode = 0):
     usedpieces = []
     datausedpieces = []
-    pieces = list(getpieces())
+    if mode:
+        pieces = list(getomaspieces())
+        board = omasboard()
+    else:
+        pieces = list(getpieces())
+        board = getboard()
     orderpieces = list(zip(list(range(len(pieces))), pieces))
     random.shuffle(orderpieces)
     pieces = [item[1] for item in orderpieces]
     orderpieces = [item[0] for item in orderpieces]
-    solution = preamble(board(), pieces, usedpieces, datausedpieces, offset)
+    solution = preamble(board, pieces, usedpieces, datausedpieces, offset, mode)
     return (solution, pieces, usedpieces, datausedpieces, orderpieces)
 
 if __name__ == '__main__':
@@ -163,6 +188,6 @@ if __name__ == '__main__':
     # datausedpieces = [[0,0,0]]
     # pieces = list(pieces())
     # solution = preamble(board(), pieces, usedpieces, datausedpieces)
-    solution, _,_,_,_ = generaterandomsolution()
+    solution, _,_,_,_ = generaterandomsolution(mode=1)
     form = '{:4}'*11
     print(*[form.format(*i) for i in solution], sep='\n')

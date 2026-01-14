@@ -19,7 +19,7 @@ class TheiQgame:
         self.level = [-1,0]
         self.itemsinlevel = []
         self.name = 'IQgame'
-        self.grid = twodimentional.board()
+        self.grid = twodimentional.getboard()
         self.pieces = list(twodimentional.getpieces())
         self.colors = twodimentional.colors()
         self.colors = tuple((color[2], color[1], color[0]) for color in self.colors)
@@ -44,7 +44,6 @@ class TheiQgame:
                 self.endlevel(self.arr,self.level)
                 while len(self.buffer) == 0:
                     t.sleep(0.05)
-                # solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
                 solution, newpcs, orderpcs, datanewpcs, ordernewpcs = self.buffer.pop()
                 for _ in range(2*button+2):
                     datanewpcs.pop()
@@ -56,6 +55,25 @@ class TheiQgame:
                 self.transformgrid(solution, ordernewpcs)
                 self.copygrids(grid, solution)
                 self.send()
+        elif (1020<x<1120) and (50<y<90):
+            self.switchmode()
+        
+    def switchmode(self):
+        if self.mode == 0:
+            self.mode = 1
+            self.arr[52:88,1022:1118] = (255,255,255)
+            cv2.putText(self.arr, 'Hard', (1033,80),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),2)
+            self.grid = twodimentional.omasboard()
+            self.pieces = list(twodimentional.getomaspieces())
+        elif self.mode == 1:
+            self.mode = 0
+            self.arr[52:88,1022:1118] = (255,255,255)
+            cv2.putText(self.arr, 'Easy', (1033,80),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),2)
+            self.grid = twodimentional.getboard()
+            self.pieces = list(twodimentional.getpieces())
+        self.buffer = []
+        
+        
         
     def writerecords(self):
         self.arr[260:800,0:1200] = (255,255,255)
@@ -82,29 +100,10 @@ class TheiQgame:
         selected[0] = -1
         self.cleargrid(grid)  
 
-    def solve(self, arr, grid, pieces, placedpieces):
-        self.selected[0] = -1
-        usedpieces = list(set([num for row in grid for num in row]))
-        try:
-            usedpieces.remove(0)
-        except:
-            return
-        datausedpieces = self.generatedatausedpieces(grid, usedpieces)
-        usedpieces = [num - 10 for num in usedpieces]
-        newboard = twodimentional.board()
-        solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10)
-        for i,piece in enumerate(usedpieces):
-            if piece not in placedpieces:
-                placedpieces.append(piece)
-                self.removepiecefromscreen(arr, 200*(piece//2), 150*(piece%2)+200, 200,150,(255,255,255))
-        if len(placedpieces) < 12:
-            cv2.putText(arr, 'No solutions from this position',(920,750),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,200),2)
-            self.selected[1] = 1
-        self.copygrids(grid, solution)
         
     def copygrids(self,grid, solution):            
-        for i in range(5):
-            for j in range(11):
+        for i in range(len(grid)):
+            for j in range(len(grid[0])):
                 grid[i][j] = solution[i][j]
     
     def transformgrid(self,grid, order):
@@ -117,10 +116,10 @@ class TheiQgame:
         datausedpieces = []
         for usedpiece in usedpieces:
             found = False
-            for i in range(11):
+            for i in range(len(grid[0])):
                 if found:
                     break
-                for j in range(5):
+                for j in range(len(grid)):
                     if grid[j][i] == usedpiece:
                         found = True
                         datausedpieces.append([i,j,0])
@@ -171,22 +170,6 @@ class TheiQgame:
             if self.selected[0] != -1:
                 self.flip(self.selected, self.pieces)
                 
-
-    def creategrid(self,arr, startingpoint, sizecell, widthborder, gridcolor):
-        starty, startx = startingpoint
-        sizey, sizex = sizecell
-        xlength = 11*sizex
-        ylength = 5*sizey
-        for i in range(6):
-            yval = starty + i*sizey
-            for j in range(xlength+widthborder):
-                for k in range(widthborder):
-                    arr[yval+k][startx+j] = gridcolor
-        for j in range(12):
-            xval = startx + j*sizex
-            for i in range(ylength):
-                for k in range(widthborder):
-                    arr[starty + i][xval + k] = gridcolor
 
     def putblockonscreen(self,arr,x,y,widthborder,bordercolor,sizex,sizey,color):
         arr[y:y+sizey,x:x+sizex] = bordercolor
@@ -244,7 +227,7 @@ class TheiQgame:
                 pass        
             
     def serialize(self, id):
-        return struct.pack('112s', (''.join([''.join([str(el) if el != 0 else '00' for el in row]) for row in self.grid])+f'{id:2d}').encode())
+        return struct.pack('123s', (''.join([''.join([str(el) if el != 0 else '00' for el in row]) for row in self.grid])+f'{"0"*10 if not self.mode else ""}'+f'{id:2d}'+str(self.mode)).encode())
             
     def run_listener(self, conn):
         self.thread_count += 1
@@ -304,7 +287,10 @@ class TheiQgame:
         self.thread_count += 1
         while not self.kill:
             if len(self.buffer) < 3:
-                self.buffer.append(twodimentional.generaterandomsolution(10))
+                if self.mode == 0:
+                    self.buffer.append(twodimentional.generaterandomsolution(10))
+                elif self.mode == 1:
+                    self.buffer.append(twodimentional.generaterandomsolution(10,self.mode))
             t.sleep(1)
         self.thread_count -= 1
             
@@ -320,7 +306,13 @@ class TheiQgame:
         for i,(buttoncolor, buttonname) in enumerate(zip(buttoncolors, buttonnames)):
             self.arr[140:190,200*i+115:200*(i+1)-30+115] = (0,0,0)
             self.arr[142:188,200*i+2+115:200*(i+1)-32+115] = buttoncolor
-            cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)        
+            cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2) 
+        
+        cv2.putText(self.arr, 'Mode:', (1000,40), cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),1)
+        self.arr[50:90,1020:1120] = (0,0,0)
+        self.arr[52:88,1022:1118] = (255,255,255)
+        cv2.putText(self.arr, 'Easy', (1033,80),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,0),2)
+               
         cv2.putText(self.arr, 'Points:', (50,250),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
         cv2.putText(self.arr, 'This round:', (650,250),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
         cv2.imshow(self.name,self.arr)
