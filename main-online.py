@@ -7,7 +7,7 @@ import threading
 import socket
 
 class TheiQgame:
-    def __init__(self, host="131.155.212.252", port=62743):
+    def __init__(self, host="192.168.99.151", port=62743):
         self.host = host
         self.port = port
 
@@ -15,6 +15,7 @@ class TheiQgame:
 
         self.socket = None
         self.justresetlevel = False
+        self.mode = 0 
         self.records = self.loadbesttimes()
         self.level = [-1,0]
         self.itemsinlevel = []
@@ -29,7 +30,7 @@ class TheiQgame:
         self.selected = [-1,0]
         self.levelgrid = None
         self.player = None
-        self.mode = 0 
+
     
     def update(self, x,y,selected, pieces, grid):
         if selected[1]:
