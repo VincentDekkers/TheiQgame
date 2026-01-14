@@ -191,7 +191,7 @@ class TheiQgame:
         datausedpieces = self.generatedatausedpieces(grid, usedpieces)
         usedpieces = [num - 10 for num in usedpieces]
         if not self.mode:
-            newboard = twodimentional.board()
+            newboard = twodimentional.getboard()
         else:
             newboard = twodimentional.omasboard()
         solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10, mode=self.mode)
