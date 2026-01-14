@@ -72,6 +72,7 @@ class TheiQgame:
             self.grid = twodimentional.getboard()
             self.pieces = list(twodimentional.getpieces())
         self.buffer = []
+        self.send()
         
         
         
@@ -291,7 +292,7 @@ class TheiQgame:
                     self.buffer.append(twodimentional.generaterandomsolution(10))
                 elif self.mode == 1:
                     self.buffer.append(twodimentional.generaterandomsolution(10,self.mode))
-            t.sleep(1)
+            t.sleep(0.1)
         self.thread_count -= 1
             
     def run(self):

@@ -371,7 +371,7 @@ class TheiQgame:
             if self.mode != int(message[-1]):
                 self.mode = int(message[-1])
                 self.changemode()
-            if int(message[0]) != 1:
+            if int(message[0]) != 0:
                 self.newlevel()
 
     def run_listener(self):
