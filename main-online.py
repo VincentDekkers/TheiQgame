@@ -5,10 +5,11 @@ import time as t
 import struct
 import threading
 import socket
+from tkinter import simpledialog
 
 class TheiQgame:
-    def __init__(self, host="192.168.99.151", port=62743):
-        self.host = host
+    def __init__(self, port=62743):
+        self.host = simpledialog.askstring(title="IP", prompt="IP:")
         self.port = port
 
         self.kill = False

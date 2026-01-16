@@ -7,8 +7,8 @@ import socket
 import threading
 
 class TheiQgame:
-    def __init__(self, host="192.168.99.151", port=62743):
-        self.host = host
+    def __init__(self, port=62743):
+        self.host = socket.gethostbyname(socket.gethostname())
         self.port = port
 
         self.kill = False
@@ -35,6 +35,7 @@ class TheiQgame:
         
     
     def update(self, x,y,selected, pieces, grid):
+        print(x,y)
         if (140<y<190) and (115<x<1085):
             button = (x-115)//200 if (x-115)%200<170 else -1
             if button != -1:
@@ -77,14 +78,16 @@ class TheiQgame:
         
         
     def writerecords(self):
-        self.arr[260:800,0:1200] = (255,255,255)
+        self.arr[260:700,0:1200] = (255,255,255)
         standings = [(points, player) for player, points in enumerate(self.points)]
         standings.sort(reverse=True)
         starty = 300
         for i,(points,player) in enumerate(standings):
-            cv2.putText(self.arr, f'Player {player + 1}: {points}', (50,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+            if starty+50*i < 750:
+                cv2.putText(self.arr, f'Player {player + 1}: {points}', (50,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
         for i, (time, player) in enumerate(self.ranking):
-            cv2.putText(self.arr, f'Player {player + 1}: {float(time):7.2f}', (650,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
+            if starty+50*i < 750:
+                cv2.putText(self.arr, f'Player {player + 1}: {float(time):7.2f}', (650,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
 
     def endlevel(self, arr, level):
         level[0] = -1
@@ -298,7 +301,7 @@ class TheiQgame:
     def run(self):
         threading.Thread(target=self.connection_listen_loop).start()
         threading.Thread(target=self.buffermaker).start()
-        
+        cv2.putText(self.arr, self.host, (870,790), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,0), 2)
         cv2.putText(self.arr, 'The iQgame',(200,100),cv2.FONT_HERSHEY_SIMPLEX,4,(0,0,0),2)
         self.arr[110:112,70:1130] = (0,0,0)
         
