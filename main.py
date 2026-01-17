@@ -2,15 +2,17 @@ import cv2
 import numpy as np
 import files.twodimentional as twodimentional
 import time as t
-
+import threading
 
 class TheiQgame:
     def __init__(self):
+        self.solutions = []
+        self.kill = False
         self.records = self.loadbesttimes()
         self.level = [-1,0]
         self.itemsinlevel = []
         self.name = 'IQgame'
-        self.grid = twodimentional.board()
+        self.grid = twodimentional.getboard()
         self.pieces = list(twodimentional.getpieces())
         self.colors = twodimentional.colors()
         self.colors = tuple((color[2], color[1], color[0]) for color in self.colors)
@@ -38,11 +40,26 @@ class TheiQgame:
             self.arr[140:190,200*i+115:200*(i+1)-30+115] = (0,0,0)
             self.arr[142:188,200*i+2+115:200*(i+1)-32+115] = buttoncolor
             cv2.putText(self.arr, buttonname,(200*i+5+115,180),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)        
-        
+        threading.Thread(target=self.makesolutions).start()
         cv2.imshow(self.name,self.arr)
         self.selected = [-1,0]
         cv2.setMouseCallback(self.name, self.click_event)
-        cv2.waitKey(0)
+        self.running()
+        
+    def running(self):  
+        try:
+            while cv2.getWindowProperty(self.name, 0) >= 0:
+                key = cv2.waitKey(1)
+                if key == ord('r'):
+                    if self.selected[0] != -1:
+                        self.rotate(self.selected, self.pieces)
+                elif key == ord('f'):
+                    if self.selected[0] != -1:
+                        self.flip(self.selected, self.pieces)
+                t.sleep(0.02)
+        except cv2.error:
+            self.kill = True
+        
     
     def update(self, x,y,selected, pieces, grid):
         if selected[1]:
@@ -83,7 +100,7 @@ class TheiQgame:
                         for item in self.placedpieces:
                             if item not in self.itemsinlevel:
                                 self.itemsinlevel.append(item)
-                    test = twodimentional.putpieceonboard(twodimentional.board(), pieces[selected[0]],xlocation,ylocation)
+                    test = twodimentional.putpieceonboard(twodimentional.getboard(), pieces[selected[0]],xlocation,ylocation)
                     self.addmatrices(grid, test, selected[0])
                     self.putgridonscreen(self.arr, grid, self.colors, 4, 325, 500, 50, 50, (255,255,255))
                     self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
@@ -124,7 +141,9 @@ class TheiQgame:
             if button != -1:
                 self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
                 self.endlevel(self.arr,self.level)
-                solution, newpcs, orderpcs, datanewpcs, ordernewpcs = twodimentional.generaterandomsolution(10)
+                while len(self.solutions) == 0:
+                    t.sleep(0.1)
+                solution, newpcs, orderpcs, datanewpcs, ordernewpcs = self.solutions.pop()
                 for _ in range(2*button+2):
                     datanewpcs.pop()
                     self.removefrommatrix(solution, orderpcs.pop() + 10)
@@ -169,7 +188,7 @@ class TheiQgame:
             return
         datausedpieces = self.generatedatausedpieces(grid, usedpieces)
         usedpieces = [num - 10 for num in usedpieces]
-        newboard = twodimentional.board()
+        newboard = twodimentional.getboard()
         solution = twodimentional.preamble(newboard,pieces,usedpieces,datausedpieces, offset=10)
         for i,piece in enumerate(usedpieces):
             if piece not in placedpieces:
@@ -218,7 +237,13 @@ class TheiQgame:
             for j,el in enumerate(row):
                 if el == item:
                     grid[i][j] = 0
-                
+                    
+    def makesolutions(self):
+        while not self.kill:
+            if len(self.solutions) < 3:
+                self.solutions.append(twodimentional.generaterandomsolution(10))
+            t.sleep(0.1)
+
     def addmatrices(self,grid, test, num):
         for i,row in enumerate(grid):
             for j,el in enumerate(row):
