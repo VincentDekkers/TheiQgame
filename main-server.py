@@ -14,15 +14,10 @@ class TheiQgame:
         self.kill = False
         self.thread_count = 0
         self.players = []
-        
-        self.records = self.loadbesttimes()
-        self.level = [-1,0]
         self.itemsinlevel = []
         self.name = 'IQgame'
         self.grid = twodimentional.getboard()
         self.pieces = list(twodimentional.getpieces())
-        self.colors = twodimentional.colors()
-        self.colors = tuple((color[2], color[1], color[0]) for color in self.colors)
         self.arr = np.zeros((800,1200,3),dtype=np.uint8)
         self.arr -= 1
         self.ranking = []
@@ -34,15 +29,13 @@ class TheiQgame:
         self.buffer = []
         
     
-    def update(self, x,y,selected, pieces, grid):
-        print(x,y)
+    def update(self, x,y):
         if (140<y<190) and (115<x<1085):
             button = (x-115)//200 if (x-115)%200<170 else -1
             if button != -1:
                 self.ranking = []
                 self.finishedplayers = []
-                self.clear(self.arr, pieces, grid, self.colors, selected, self.placedpieces, self.itemsinlevel)
-                self.endlevel(self.arr,self.level)
+                self.clear()
                 while len(self.buffer) == 0:
                     t.sleep(0.05)
                 solution, newpcs, orderpcs, datanewpcs, ordernewpcs = self.buffer.pop()
@@ -50,11 +43,11 @@ class TheiQgame:
                     datanewpcs.pop()
                     self.removefrommatrix(solution, orderpcs.pop() + 10)
                 for piecenum in orderpcs:
-                    pieces[ordernewpcs[piecenum]] = newpcs[piecenum]
+                    self.pieces[ordernewpcs[piecenum]] = newpcs[piecenum]
                     self.placedpieces.append(ordernewpcs[piecenum])
                     self.itemsinlevel.append(ordernewpcs[piecenum])
                 self.transformgrid(solution, ordernewpcs)
-                self.copygrids(grid, solution)
+                self.copygrids(solution)
                 self.send()
         elif (1020<x<1120) and (50<y<90):
             self.switchmode()
@@ -75,8 +68,6 @@ class TheiQgame:
         self.buffer = []
         self.send()
         
-        
-        
     def writerecords(self):
         self.arr[260:700,0:1200] = (255,255,255)
         standings = [(points, player) for player, points in enumerate(self.points)]
@@ -89,138 +80,44 @@ class TheiQgame:
             if starty+50*i < 750:
                 cv2.putText(self.arr, f'Player {player + 1}: {float(time):7.2f}', (650,starty+50*i),cv2.FONT_HERSHEY_SIMPLEX,1.5,(0,0,0),2)
 
-    def endlevel(self, arr, level):
-        level[0] = -1
-        level[1] = 0
-        arr[500:800,0:325] = (255,255,255)
         
-    def clear(self, arr, pieces, grid, colors, selected, placedpieces, itemsinlevel):
-        length = len(placedpieces)
+    def clear(self):
+        length = len(self.placedpieces)
         for _ in range(length):
-            placedpieces.pop()
-        length = len(itemsinlevel)
-        for _ in range(length):
-            itemsinlevel.pop()
-        selected[0] = -1
-        self.cleargrid(grid)  
+            self.placedpieces.pop()
+        length = len(self.itemsinlevel)
+        for _ in range(self.length):
+            self.itemsinlevel.pop()
+        self.cleargrid()  
 
         
-    def copygrids(self,grid, solution):            
-        for i in range(len(grid)):
-            for j in range(len(grid[0])):
-                grid[i][j] = solution[i][j]
+    def copygrids(self, solution):            
+        for i in range(len(self.grid)):
+            for j in range(len(self.grid[0])):
+                self.grid[i][j] = solution[i][j]
     
-    def transformgrid(self,grid, order):
+    def transformgrid(self, grid, order):
         for i,row in enumerate(grid):
             for j, el in enumerate(row):
                 if el != 0:
                     grid[i][j] = order[el-10] + 10       
-        
-    def generatedatausedpieces(self,grid, usedpieces):
-        datausedpieces = []
-        for usedpiece in usedpieces:
-            found = False
-            for i in range(len(grid[0])):
-                if found:
-                    break
-                for j in range(len(grid)):
-                    if grid[j][i] == usedpiece:
-                        found = True
-                        datausedpieces.append([i,j,0])
-                        break
-        return datausedpieces
 
-    def cleargrid(self,grid):
-        ii = len(grid)
-        jj = len(grid[0])
+    def cleargrid(self):
+        ii = len(self.grid)
+        jj = len(self.grid[0])
         for i in range(ii):
             for j in range(jj):
-                grid[i][j] = 0
+                self.grid[i][j] = 0
                 
     def removefrommatrix(self,grid, item):
         for i,row in enumerate(grid):
             for j,el in enumerate(row):
                 if el == item:
-                    grid[i][j] = 0
-                
-    def addmatrices(self,grid, test, num):
-        for i,row in enumerate(grid):
-            for j,el in enumerate(row):
-                grid[i][j] = el + test[i][j]*(10+num)
-
-    def rotate(self,selected, pieces):
-        oldpiece = pieces[selected[0]]
-        newpiece = twodimentional.rotate(oldpiece, 1)
-        pieces[selected[0]] = newpiece
-        self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
-        self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,150), self.colors[selected[0]])
-       
-        
-    def flip(self,selected, pieces):
-        oldpiece = pieces[selected[0]]
-        newpiece = twodimentional.flip(oldpiece)
-        pieces[selected[0]] = newpiece
-        self.removepiecefromscreen(self.arr, 200*(selected[0]//2), 150*(selected[0]%2)+200, 200,150,(255,255,255))
-        self.putpieceonscreen(self.arr, pieces[selected[0]],200*(selected[0]//2)+5, 150*(selected[0]%2)+205, 35,35, 4,(0,0,150), self.colors[selected[0]])
-        
+                    grid[i][j] = 0      
             
     def click_event(self,event, x, y, flags, params):
         if event == cv2.EVENT_LBUTTONDOWN:
-            self.update(x,y,self.selected, self.pieces, self.grid)
-        elif event == cv2.EVENT_MOUSEWHEEL:
-            if self.selected[0] != -1:
-                self.rotate(self.selected, self.pieces)
-        elif event == cv2.EVENT_RBUTTONDOWN:
-            if self.selected[0] != -1:
-                self.flip(self.selected, self.pieces)
-                
-
-    def putblockonscreen(self,arr,x,y,widthborder,bordercolor,sizex,sizey,color):
-        arr[y:y+sizey,x:x+sizex] = bordercolor
-        arr[y+widthborder//2:y+sizey-widthborder//2,x+widthborder//2:x+sizex-widthborder//2] = color
-        
-    def putgridonscreen(self,arr, grid, colors, widthborder, startx, starty, sizex, sizey, backgroundcolor):
-        h = widthborder//2
-        for i, row in enumerate(grid):
-            for j, el in enumerate(row):
-                if el == 0:
-                    arr[starty+i*sizey+h:starty+(i+1)*sizey,startx+j*sizex+h:startx+(j+1)*sizex] = backgroundcolor
-                else:
-                    arr[starty+i*sizey+h:starty+(i+1)*sizey,startx+j*sizex+h:startx+(j+1)*sizex] = colors[el-10]
-        
-    def removepiecefromscreen(self,arr,startx, starty, sizex, sizey, backgroundcolor):
-        arr[starty:starty+sizey,startx:startx+sizex] = backgroundcolor
-
-    def putpiecesonscreen(self,arr, pieces, colors, sizecell, widthborder, bordercolor):
-        ystep = 150
-        xstep = 200
-        sizey, sizex = sizecell
-        for i in range(6):
-            for j in range(2):
-                piece = pieces[i*2+j]
-                color = colors[i*2+j]
-                startx, starty = i * xstep + 5, j * ystep + 205
-                self.putpieceonscreen(arr, piece, startx, starty, sizex, sizey, widthborder, bordercolor, color)
-                
-    def putpieceonscreen(self,arr, piece, startx, starty, sizex, sizey, widthborder, bordercolor, color):    
-        for k,row in enumerate(piece):
-            for l,el in enumerate(row):
-                if el:
-                    self.putblockonscreen(arr,startx+l*sizey,starty+k*sizex,widthborder,bordercolor,sizex,sizey,color)
-        
-    def loadbesttimes(self,):
-        try:
-            data = []
-            with open('files/records.py','r') as file:
-                for record in file.readlines():
-                    data.append(float(record[:-1]))
-        except:
-            data = [9999.99]*5
-        return data
-            
-    def writebesttimes(self,records):
-        with open('files/records.py','w') as file:
-            file.writelines([str(record)+'\n' for record in records])
+            self.update(x,y)
             
     def send(self):
         for id,player_conn in enumerate(self.players):
@@ -280,7 +177,6 @@ class TheiQgame:
                     continue
                 t.sleep(0.01)
         self.thread_count -= 1
-    
 
     def await_kill(self):
         self.kill = True
