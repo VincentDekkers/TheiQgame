@@ -86,7 +86,7 @@ class TheiQgame:
         for _ in range(length):
             self.placedpieces.pop()
         length = len(self.itemsinlevel)
-        for _ in range(self.length):
+        for _ in range(length):
             self.itemsinlevel.pop()
         self.cleargrid()  
 
